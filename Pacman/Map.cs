@@ -6,6 +6,14 @@ using System.Threading.Tasks;
 
 namespace Pacman
 {
+    public enum Direction : int
+    {
+        Left = ConsoleKey.LeftArrow,
+        Up = ConsoleKey.UpArrow,
+        Right = ConsoleKey.RightArrow,
+        Down = ConsoleKey.DownArrow
+    }
+
     public class Map
     {
         private int _width;
@@ -24,6 +32,8 @@ namespace Pacman
         private Dog _dog;
         private Enemy _enemy;
         private Enemy _enemy2;
+
+        private Projectile _projectile;
         
         public Map(string src)
         {
@@ -59,6 +69,8 @@ namespace Pacman
             _dog = new Dog(2, 2);
             _enemy = new Enemy(_height - 2, _width - 2);
             _enemy2 = new Enemy(_height - 3, _width - 3);
+
+            _projectile = new Projectile(_dog.Position);
         }
 
         public Map(int width, int height)
@@ -77,6 +89,8 @@ namespace Pacman
             _dog = new Dog(2, 2);
             _enemy = new Enemy(_height - 2, _width - 2);
             _enemy2 = new Enemy(_height - 3, _width - 3);
+
+            _projectile = new Projectile(_dog.Position);
         }
 
         private void DrawMap()
@@ -131,48 +145,73 @@ namespace Pacman
         
         private async void MovePersonAsync(Person person) => await Task.Run(() => MovePerson(person));
         
-        
+        private async void AttackAsync() => await Task.Run(() => Attack());
+
+        private async void MoveProjectileAsync() => await Task.Run(() => MoveProjectile());
+
+        private void MoveProjectile()
+        {
+            while(true)
+            {
+            	if (_map[_projectile.Position.X, _projectile.Position.Y + 1] == _wall)
+            	{
+            		break;
+            	}
+            	else if (_projectile.Position == _enemy.Position)
+            	{
+            		_enemy = new Enemy(_height - 2, _width - 2);
+            		break;
+            	}
+            	_projectile.Position.Y++;
+            	Thread.Sleep(200);
+            }
+            _projectile.Character = ' ';
+        }
+
         private void MoveRandom(Person person)
         {
             while (true)
             {
-                int key = random.Next(0, 4);
+                // up, down, left, right
+                // left, up, right, down
 
-                switch (key)
+                Direction direction = (Direction)random.Next(37, 41);
+
+                switch (direction)
                 {
-                    case 0:
-                        if (_map[person.Position.X - 1, person.Position.Y] != _wall)
-                        {
-                            person.Position.X--;
-                        }
-                        break;
-                    case 1:
-                        if (_map[person.Position.X + 1, person.Position.Y] != _wall)
-                        {
-                            person.Position.X++;
-                        }
-                        break;
-                    case 2:
+                    case Direction.Left:
                         if (_map[person.Position.X, person.Position.Y - 1] != _wall)
                         {
                             person.Position.Y--;
                         }
                         break;
-                    case 3:
+                    case Direction.Up:
+                        if (_map[person.Position.X - 1, person.Position.Y] != _wall)
+                        {
+                            person.Position.X--;
+                        }
+                        break;
+                    case Direction.Right:
                         if (_map[person.Position.X, person.Position.Y + 1] != _wall)
                         {
                             person.Position.Y++;
                         }
                         break;
+                    case Direction.Down:
+                        if (_map[person.Position.X + 1, person.Position.Y] != _wall)
+                        {
+                            person.Position.X++;
+                        }
+                        break;
                 }
-                Thread.Sleep(50);
+                Thread.Sleep(100);
             }
         }
         private void MovePerson(Person person)
         {
             while (true)
             { 
-                ConsoleKeyInfo charKey = Console.ReadKey();
+                ConsoleKeyInfo charKey = Console.ReadKey(true);
 
                 switch (charKey.Key)
                 {
@@ -200,8 +239,17 @@ namespace Pacman
                             person.Position.Y++;
                         }
                         break;
-                }
 
+
+                    case ConsoleKey.D: // D 68 - right
+                    	_projectile = new Projectile(_dog.Position);
+                    	_projectile.Character = '-';
+                    	MoveProjectileAsync();
+                        
+                        break;
+
+                }
+                
                 if (_map[person.Position.X, person.Position.Y] == _resource.Character)
                 {
                     _map[person.Position.X, person.Position.Y] = _clearPlace;
@@ -209,6 +257,42 @@ namespace Pacman
                 }
             }
             
+        }
+
+        private void Attack()
+        {
+            // A 65 - left
+            // D 68 - right
+            // S 83 - down
+            // W 87 - up
+
+            while(true)
+            {
+                ConsoleKeyInfo directionAttack = Console.ReadKey(true);
+                
+                _projectile = new Projectile(_dog.Position);
+
+                switch (directionAttack.Key)
+                {
+                    case ConsoleKey.D: // D 68 - right
+
+                    	_projectile.Character = '-';
+
+                        while(_map[_projectile.Position.X, _projectile.Position.Y + 1] != _wall
+                            && _projectile.Position != _enemy.Position)
+                        {
+                            _projectile.Position.Y++;
+                            Thread.Sleep(50);
+                        }
+                        break;
+                    _projectile.Character = ' ';
+                }
+            }
+        }
+        private void PrintProjectile()
+        {
+        	Console.SetCursorPosition(_projectile.Position.Y, _projectile.Position.X);
+            Console.Write(_projectile.Character);
         }
 
         private string DrawAllMap()
@@ -221,7 +305,9 @@ namespace Pacman
 
                 PrintPerson(_enemy, ConsoleColor.Red);
                 PrintPerson(_enemy2, ConsoleColor.Yellow);
+                PrintProjectile();
                 PrintPerson(_dog, ConsoleColor.Green);
+                
 
                 Thread.Sleep(100);
 
@@ -263,7 +349,7 @@ namespace Pacman
             MovePersonAsync(_dog);
             MoveRandomPersonAsync(_enemy);
             //MoveRandomPersonAsync(_enemy2);
-
+            //AttackAsync();
 
             string message = DrawAllMap();
 
